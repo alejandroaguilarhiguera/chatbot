@@ -43,6 +43,14 @@ Al recibir un mensaje desde telegram
 
 Para enviar un mensaje sera a la siguiente url:
 https://api.telegram.org/bot<TOKEN>/sendMessage
+form url encoded
+
+key: chat_id
+value: <number>
+
+key: text
+value: <string>
+
 
 
 

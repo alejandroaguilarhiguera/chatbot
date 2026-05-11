@@ -192,6 +192,7 @@ celerybeat-schedule.*
 env/
 venv/
 ENV/
+env.json
 env.bak/
 venv.bak/
 
