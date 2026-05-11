@@ -2,22 +2,49 @@ AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
 Description: >
   bot-app
-
   Sample SAM Template for bot-app
-
-
 
 Globals:
   Function:
     Timeout: 3
-
     Tracing: Active
-    # You can add LoggingConfig parameters such as the Logformat, Log Group, and SystemLogLevel or ApplicationLogLevel. Learn more here https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-resource-function.html#sam-function-loggingconfig.
     LoggingConfig:
       LogFormat: JSON
   Api:
     TracingEnabled: true
+Parameters:
+  GeminiToken:
+    Type: String
+    NoEcho: true
+  TelegramToken:
+    Type: String
+    NoEcho: true
+
 Resources:
+
+  # ── Tabla DynamoDB para historial de chat ──────────────────────────
+  ChatHistoryTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: ChatHistory
+      BillingMode: PAY_PER_REQUEST   # Sin costo fijo, pagas por uso
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      AttributeDefinitions:
+        - AttributeName: chat_id      # ID del chat de Telegram
+          AttributeType: S
+        - AttributeName: timestamp    # Momento del mensaje
+          AttributeType: S
+      KeySchema:
+        - AttributeName: chat_id      # Partition key → agrupa por usuario
+          KeyType: HASH
+        - AttributeName: timestamp    # Sort key → ordena los mensajes
+          KeyType: RANGE
+      TimeToLiveSpecification:
+        AttributeName: ttl            # Los registros se borran solos
+        Enabled: true
+
+  # ── Lambda ────────────────────────────────────────────────────────
   BotWebhook:
     Type: AWS::Serverless::Function
     Properties:
@@ -29,10 +56,23 @@ Resources:
       Environment:
         Variables:
           LOCAL: "false"
+          CHAT_HISTORY_TABLE: !Ref ChatHistoryTable   # 👈 Nombre de la tabla
+          HISTORY_TTL_DAYS: "30"                      # 👈 Días antes de borrar
+          GEMINI_TOKEN: !Ref GeminiToken       
+          TELEGRAM_TOKEN: !Ref TelegramToken    
 
+      Policies:
+        - DynamoDBCrudPolicy:                         # 👈 Permisos a la tabla
+            TableName: !Ref ChatHistoryTable
       Events:
         ApiPostCode:
           Type: Api
           Properties:
             Path: /bot-webhook
             Method: post
+
+Outputs:
+  ChatHistoryTableName:
+    Value: !Ref ChatHistoryTable
+  ChatHistoryTableArn:
+    Value: !GetAtt ChatHistoryTable.Arn

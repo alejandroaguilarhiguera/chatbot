@@ -196,6 +196,8 @@ env.json
 env.bak/
 venv.bak/
 
+samconfig.toml
+
 # Spyder project settings
 .spyderproject
 .spyproject
