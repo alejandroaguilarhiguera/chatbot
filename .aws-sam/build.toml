@@ -7,6 +7,6 @@ architecture = "x86_64"
 handler = "bot_webhook_telegram.app.lambda_handler"
 manifest_hash = ""
 packagetype = "Zip"
-functions = ["BotWebhookTelegram"]
+functions = ["BotWebhookTelegram", "BotWebhookWhatsapp"]
 
 [layer_build_definitions]
