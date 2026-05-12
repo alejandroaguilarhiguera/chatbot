@@ -45,11 +45,11 @@ Resources:
         Enabled: true
 
   # ── Lambda ────────────────────────────────────────────────────────
-  BotWebhook:
+  BotWebhookTelegram:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: src/bot-webhook/
-      Handler: app.lambda_handler
+      CodeUri: src/
+      Handler: bot_webhook_telegram.app.lambda_handler
       Runtime: python3.13
       Timeout: 10
       MemorySize: 128

@@ -1,0 +1,36 @@
+import os
+import boto3
+
+from datetime import datetime, timezone, timedelta
+from boto3.dynamodb.conditions import Key
+
+dynamodb = boto3.resource('dynamodb')
+
+table = dynamodb.Table(
+    os.environ.get('CHAT_HISTORY_TABLE', 'ChatHistory')
+)
+
+TTL_DAYS = int(os.environ.get('HISTORY_TTL_DAYS', 30))
+
+
+def save_message(chat_id: str, role: str, text: str):
+    now = datetime.now(timezone.utc)
+    ttl = int((now + timedelta(days=TTL_DAYS)).timestamp())
+
+    table.put_item(Item={
+        'chat_id':   str(chat_id),
+        'timestamp': now.isoformat(),
+        'role':      role,
+        'message':   text,
+        'ttl':       ttl
+    })
+
+def get_history(chat_id: str, limit: int = 10) -> list:
+    from boto3.dynamodb.conditions import Key
+
+    response = table.query(
+        KeyConditionExpression=Key('chat_id').eq(str(chat_id)),
+        ScanIndexForward=False,
+        Limit=limit
+    )
+    return list(reversed(response['Items']))
