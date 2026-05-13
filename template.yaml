@@ -19,6 +19,9 @@ Parameters:
   TelegramToken:
     Type: String
     NoEcho: true
+  GroqApiKey:
+    Type: String
+    NoEcho: true
 
 Resources:
 
@@ -60,6 +63,7 @@ Resources:
           HISTORY_TTL_DAYS: "30"                      # 👈 Días antes de borrar
           GEMINI_TOKEN: !Ref GeminiToken       
           TELEGRAM_TOKEN: !Ref TelegramToken    
+          GROQ_API_KEY: !Ref GroqApiKey
 
       Policies:
         - DynamoDBCrudPolicy:                         # 👈 Permisos a la tabla

@@ -4,7 +4,7 @@ import urllib.request
 import urllib.parse
 
 from shared.ai_service import get_gemini_response
-
+from shared.ai_service import call_groq
 
 TOKEN = os.environ.get("TELEGRAM_TOKEN")
 
@@ -26,7 +26,7 @@ def lambda_handler(event, context):
 
     if chat_id and incoming_text:
 
-        ai_response = get_gemini_response(
+        ai_response = call_groq(
             str(chat_id),
             incoming_text
         )

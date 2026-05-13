@@ -2,7 +2,6 @@ import os
 import json
 import urllib.request
 
-from shared.ai_service import get_gemini_response
 
 
 WHATSAPP_TOKEN = os.environ.get("WHATSAPP_TOKEN")
