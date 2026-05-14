@@ -3,8 +3,7 @@ import json
 import urllib.request
 import urllib.parse
 
-from shared.ai_service import get_gemini_response
-from shared.ai_service import call_groq
+from shared.groq import call_groq
 
 TOKEN = os.environ.get("TELEGRAM_TOKEN")
 

@@ -23,6 +23,10 @@ Parameters:
     Type: String
     NoEcho: true
 
+  GoogleServiceAccountJson:
+    Type: String
+    NoEcho: true
+
 Resources:
 
   # ── Tabla DynamoDB para historial de chat ──────────────────────────
@@ -58,12 +62,14 @@ Resources:
       MemorySize: 128
       Environment:
         Variables:
+          TZ: "America/Mazatlan"
           LOCAL: "false"
           CHAT_HISTORY_TABLE: !Ref ChatHistoryTable   # 👈 Nombre de la tabla
           HISTORY_TTL_DAYS: "30"                      # 👈 Días antes de borrar
           GEMINI_TOKEN: !Ref GeminiToken       
           TELEGRAM_TOKEN: !Ref TelegramToken    
           GROQ_API_KEY: !Ref GroqApiKey
+          GOOGLE_SERVICE_ACCOUNT_JSON: !Ref GoogleServiceAccountJson
 
       Policies:
         - DynamoDBCrudPolicy:                         # 👈 Permisos a la tabla
