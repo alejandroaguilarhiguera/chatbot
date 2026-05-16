@@ -3,6 +3,8 @@ import json
 import urllib.request
 import urllib.parse
 
+# from shared.openai import call_openai
+# from shared.gemini import call_gemini
 from shared.groq import call_groq
 
 TOKEN = os.environ.get("TELEGRAM_TOKEN")
@@ -10,8 +12,6 @@ TOKEN = os.environ.get("TELEGRAM_TOKEN")
 TELEGRAM_URL = (
     f"https://api.telegram.org/bot{TOKEN}/sendMessage"
 )
-
-
 
 def lambda_handler(event, context):
 

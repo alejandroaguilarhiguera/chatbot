@@ -6,7 +6,7 @@ Description: >
 
 Globals:
   Function:
-    Timeout: 3
+    Timeout: 5
     Tracing: Active
     LoggingConfig:
       LogFormat: JSON
@@ -22,7 +22,9 @@ Parameters:
   GroqApiKey:
     Type: String
     NoEcho: true
-
+  OpenAIToken:
+    Type: String
+    NoEcho: true
   GoogleServiceAccountJson:
     Type: String
     NoEcho: true
@@ -69,6 +71,7 @@ Resources:
           GEMINI_TOKEN: !Ref GeminiToken       
           TELEGRAM_TOKEN: !Ref TelegramToken    
           GROQ_API_KEY: !Ref GroqApiKey
+          OPENAI_TOKEN: !Ref OpenAIToken
           GOOGLE_SERVICE_ACCOUNT_JSON: !Ref GoogleServiceAccountJson
 
       Policies:
@@ -105,6 +108,33 @@ Resources:
           Properties:
             Path: /bot-webhook-whatsapp
             Method: POST
+
+  ListEvents:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/
+      Handler: list_events.app.lambda_handler
+      Runtime: python3.13
+  
+      Environment:
+        Variables:
+          GOOGLE_SERVICE_ACCOUNT_JSON: !Ref GoogleServiceAccountJson
+      #     GEMINI_TOKEN: !Ref GeminiToken
+      #     WHATSAPP_TOKEN: !Ref WhatsAppToken
+      #     PHONE_NUMBER_ID: !Ref PhoneNumberId
+      #     VERIFY_TOKEN: !Ref VerifyToken
+      #     CHAT_HISTORY_TABLE: !Ref ChatHistoryTable
+  
+      # Policies:
+      #   - DynamoDBCrudPolicy:
+      #       TableName: !Ref ChatHistoryTable
+  
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            Path: /list-events
+            Method: GET
 
 Outputs:
   ChatHistoryTableName:

@@ -12,4 +12,6 @@ REGLAS ESTRICTAS:
 
 OBJETIVO:
 - Agendar citas de soporte técnico cuando el usuario proporcione fecha y hora.
+- El usuario puede pedir que se agende una cita o que se elimine una cita existente.
+- Puedes proponer el horario más cercano disponible si el usuario no especifica uno o si el solicitado ya está ocupado.
 """
