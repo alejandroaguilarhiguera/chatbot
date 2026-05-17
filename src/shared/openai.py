@@ -13,15 +13,65 @@ from shared.google_calendar import (
 logger = logging.getLogger()
 
 OPENAI_TOKEN = os.environ.get("OPENAI_TOKEN", "")
+headers = {
+    "Content-Type": "application/json",
+    "Authorization": f"Bearer {OPENAI_TOKEN}"
+}
+URL = "https://api.openai.com/v1/chat/completions"
+
+
+
+def get_date_now():
+    now = datetime.now()
+    current_date = now.strftime("%Y-%m-%d")
+    current_time = now.strftime("%H:%M")
+    day_week = now.strftime("%A")
+    return current_date, current_time, day_week
+
+def get_response_openai(user_message: str, model="gpt-4.1-mini") -> tuple[bool, str]:
+    payload = {
+        "model": model,
+        "temperature": 0.1,
+        "tool_choice": "auto",
+        "messages": [
+            {
+                "role": "system",
+                "content": rules
+            },
+            {
+                "role": "user",
+                "content": user_message
+            }
+        ]
+    }
+
+    try:
+        body = json.dumps(payload).encode("utf-8")
+
+        request = urllib.request.Request(
+            URL,
+            data=body,
+            headers=headers,
+            method="POST"
+        )
+
+        with urllib.request.urlopen(request) as response:
+            result = json.loads(response.read().decode("utf-8"))
+            message = result["choices"][0]["message"]
+            return True, message.get("content", "")
+
+    except urllib.error.HTTPError as e:
+        error_body = e.read().decode("utf-8")
+        logger.error(f"HTTP Error OpenAI: {e.code} - {error_body}")
+        return False, "Error de comunicación con OpenAI."
+
+    except Exception as e:
+        logger.error(f"Error OpenAI: {str(e)}")
+        return False, "Error interno al procesar la respuesta."
 
 def call_openai(chat_id: str, user_message: str, model="gpt-4.1-mini"):
-
-    # Guardar mensaje usuario
     save_message(chat_id, 'user', user_message)
-
-    # Historial
     history = get_history(chat_id, limit=10)
-
     messages = [
         {
             "role": msg['role'],
@@ -30,18 +80,13 @@ def call_openai(chat_id: str, user_message: str, model="gpt-4.1-mini"):
         for msg in history
     ]
 
-    # Fecha/hora actual
-    now = datetime.now()
-    current_date = now.strftime("%Y-%m-%d")
-    current_time = now.strftime("%H:%M")
-    dia_semana = now.strftime("%A")
+    current_date, current_time, day_week = get_date_now()
 
-    # Prompt sistema
     system_message = (
         f"{rules}\n\n"
         f"Fecha actual: {current_date}\n"
         f"Hora actual: {current_time}\n"
-        f"Día actual: {dia_semana}\n\n"
+        f"Día actual: {day_week}\n\n"
         f"INSTRUCCIONES DE HERRAMIENTAS:\n"
         f"- Usa 'book_appointment' para crear citas.\n"
         f"- Usa 'remove_book_appointment' para eliminar citas."
@@ -110,19 +155,12 @@ def call_openai(chat_id: str, user_message: str, model="gpt-4.1-mini"):
         "tool_choice": "auto"
     }
 
-    url = "https://api.openai.com/v1/chat/completions"
-
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {OPENAI_TOKEN}"
-    }
-
     try:
 
         body = json.dumps(payload).encode("utf-8")
 
         req = urllib.request.Request(
-            url,
+            URL,
             data=body,
             headers=headers
         )
@@ -144,36 +182,34 @@ def call_openai(chat_id: str, user_message: str, model="gpt-4.1-mini"):
                     tool_call["function"]["arguments"]
                 )
 
-                fecha = args.get("fecha")
-                hora = args.get("hora")
-                motivo = args.get("motivo", "Cita por Chatbot")
+                date = args.get("fecha")
+                hour = args.get("hora")
+                reason = args.get("motivo", "Cita por Chatbot")
 
                 if function_name == "book_appointment":
-
-                    exito, detalle = book_appointment_google(
-                        fecha,
-                        hora,
-                        motivo
+                    #
+                    #  
+                    success, payload = book_appointment_google(
+                        date,
+                        hour,
+                        reason
                     )
-
-                    response_text = (
-                        f"✅ Tu cita fue agendada para el {fecha} a las {hora}."
-                        if exito
-                        else f"❌ Error al agendar: {detalle}"
+                    # Check this:
+                    response_text = get_response_openai(
+                        "Generame una respuesta para el usuario basada en ese resultado.",
+                        f"Resultado de book_appointment: success={success}, payload={payload}\n\n",
                     )
 
                 elif function_name == "remove_book_appointment":
 
-                    exito, detalle = remove_appointment_google(
-                        fecha,
-                        hora
+                    success, payload = remove_appointment_google(
+                        date,
+                        hour
                     )
-
-                    response_text = (
-                        f"🗑️ Eliminé tu cita del {fecha} a las {hora}."
-                        if exito
-                        else f"❌ No pude eliminar la cita: {detalle}"
-                    )
+                    if success:
+                        response_text = f"🗑️ Eliminé tu cita del {date} a las {hour}."
+                    else:
+                        response_text = f"❌ No pude eliminar la cita: {payload.get('message') }"
 
                 else:
                     response_text = "La herramienta solicitada no es válida."
