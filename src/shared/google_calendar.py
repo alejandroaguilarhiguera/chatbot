@@ -1,15 +1,16 @@
 import os
 import json
 import base64
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 import zoneinfo
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 
 calendar_id = "alejandro.aguilar.higuera@gmail.com"
 
-def get_calendar_events_google():
-    date_now = datetime.now().strftime("%Y-%m-%d")
+def get_calendar_events_google(date):
+    date_now = datetime.now().strftime("%Y-%m-%d %H:%M")
+
     try:
         # JSON Base64 de la cuenta de servicio
         b64_json = os.environ.get('GOOGLE_SERVICE_ACCOUNT_JSON')
@@ -31,7 +32,7 @@ def get_calendar_events_google():
         # Scope Google Calendar
         SCOPES = ['https://www.googleapis.com/auth/calendar']
 
-        creds = service_account.Credentials.from_service_account_info(
+        credentials = service_account.Credentials.from_service_account_info(
             service_account_info,
             scopes=SCOPES
         )
@@ -40,7 +41,7 @@ def get_calendar_events_google():
         service = build(
             'calendar',
             'v3',
-            credentials=creds
+            credentials=credentials
         )
 
         # Zona horaria local
@@ -50,7 +51,7 @@ def get_calendar_events_google():
 
         # Fecha/hora LOCAL inicio y fin del día
         local_start = datetime.strptime(
-            f"{date_now} 00:00",
+            f"{date if date else date_now}",
             "%Y-%m-%d %H:%M"
         ).replace(tzinfo=local_tz)
 

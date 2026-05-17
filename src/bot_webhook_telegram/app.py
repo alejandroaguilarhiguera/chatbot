@@ -3,9 +3,9 @@ import json
 import urllib.request
 import urllib.parse
 
-# from shared.openai import call_openai
+from shared.openai import call_openai
 # from shared.gemini import call_gemini
-from shared.groq import call_groq
+# from shared.groq import call_groq
 
 TOKEN = os.environ.get("TELEGRAM_TOKEN")
 
@@ -25,7 +25,7 @@ def lambda_handler(event, context):
 
     if chat_id and incoming_text:
 
-        ai_response = call_groq(
+        ai_response = call_openai(
             str(chat_id),
             incoming_text
         )

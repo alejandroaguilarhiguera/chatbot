@@ -7,19 +7,19 @@ from shared.history_service import save_message, get_history
 from shared.prompts import rules
 from shared.google_calendar import (
     book_appointment_google,
-    remove_appointment_google
+    remove_appointment_google,
+    get_calendar_events_google
 )
 
 logger = logging.getLogger()
 
 OPENAI_TOKEN = os.environ.get("OPENAI_TOKEN", "")
+
 headers = {
     "Content-Type": "application/json",
     "Authorization": f"Bearer {OPENAI_TOKEN}"
 }
 URL = "https://api.openai.com/v1/chat/completions"
-
-
 
 def get_date_now():
     now = datetime.now()
@@ -32,7 +32,6 @@ def get_response_openai(user_message: str, model="gpt-4.1-mini") -> tuple[bool, 
     payload = {
         "model": model,
         "temperature": 0.1,
-        "tool_choice": "auto",
         "messages": [
             {
                 "role": "system",
@@ -187,18 +186,43 @@ def call_openai(chat_id: str, user_message: str, model="gpt-4.1-mini"):
                 reason = args.get("motivo", "Cita por Chatbot")
 
                 if function_name == "book_appointment":
-                    #
-                    #  
                     success, payload = book_appointment_google(
                         date,
                         hour,
                         reason
                     )
-                    # Check this:
-                    response_text = get_response_openai(
-                        "Generame una respuesta para el usuario basada en ese resultado.",
-                        f"Resultado de book_appointment: success={success}, payload={payload}\n\n",
-                    )
+
+                    if success:
+                        prompt_result = (
+                            "Genera una respuesta corta y amigable para el usuario "
+                            "basada en el resultado de agendar una cita.\n\n"
+                            f"success={success}\n"
+                            f"payload={json.dumps(payload, ensure_ascii=False)}"
+                        )
+
+                        ok, response_text = get_response_openai(
+                            prompt_result
+                        )
+
+                    elif success == False and payload.get("code") == "SLOT_OCCUPIED":
+                        success_events, events = get_calendar_events_google(f"{date} {hour}")
+
+                        if success_events:
+                            prompt_result = (
+                                "Genera una respuesta corta y amigable para el usuario "
+                                "La fecha y hora en la que el usuario intentó agendar una cita esta ocupada {date} {hour} "
+                                "ofrece otra fecha y hora disponible que puede agendar, te muestro los eventos que estan ocupados.\n\n"
+                                f"events={json.dumps(events, ensure_ascii=False)}"
+                            )
+                        else:
+                            prompt_result = (
+                                "Genera una respuesta corta y amigable para el usuario "
+                                "La fecha en la que el usuario intentó agendar una cita esta ocupada {date} {hour}. "
+                            )
+                        ok, response_text = get_response_openai(prompt_result)
+
+                    else:
+                        response_text = "Hubo un error al intentar agendar la cita."
 
                 elif function_name == "remove_book_appointment":
 
@@ -206,16 +230,18 @@ def call_openai(chat_id: str, user_message: str, model="gpt-4.1-mini"):
                         date,
                         hour
                     )
-                    if success:
-                        response_text = f"🗑️ Eliminé tu cita del {date} a las {hour}."
-                    else:
-                        response_text = f"❌ No pude eliminar la cita: {payload.get('message') }"
-
+                    prompt_result = (
+                        "Genera una respuesta corta y amigable para el usuario "
+                        "basada en el resultado de eliminar una cita.\n\n"
+                        f"success={success}\n"
+                        f"payload={json.dumps(payload, ensure_ascii=False)}"
+                    )
+                    ok, response_text = get_response_openai(
+                        prompt_result
+                    )
                 else:
                     response_text = "La herramienta solicitada no es válida."
-
             else:
-
                 response_text = message.get(
                     "content",
                     "No pude procesar tu solicitud."
