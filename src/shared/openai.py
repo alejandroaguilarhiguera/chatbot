@@ -68,8 +68,8 @@ def get_response_openai(user_message: str, model="gpt-4.1-mini") -> tuple[bool, 
         logger.error(f"Error OpenAI: {str(e)}")
         return False, "Error interno al procesar la respuesta."
 
-def call_openai(chat_id: str, user_message: str, model="gpt-4.1-mini"):
-    save_message(chat_id, 'user', user_message)
+def call_openai(channel: str, chat_id: str, user_message: str, model="gpt-4.1-mini"):
+    save_message(channel, chat_id, 'user', user_message)
     history = get_history(chat_id, limit=10)
     messages = [
         {
@@ -294,6 +294,6 @@ def call_openai(chat_id: str, user_message: str, model="gpt-4.1-mini"):
             "Tengo problemas técnicos para procesar tu solicitud."
         )
 
-    save_message(chat_id, 'assistant', response_text)
+    save_message(channel, chat_id, 'assistant', response_text)
 
     return response_text

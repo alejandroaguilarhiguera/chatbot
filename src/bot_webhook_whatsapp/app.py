@@ -1,10 +1,9 @@
 import os
 import json
 import urllib.request
+from shared.openai import call_openai
 
-
-
-WHATSAPP_TOKEN = os.environ.get("WHATSAPP_TOKEN")
+TOKEN = os.environ.get("WHATSAPP_TOKEN")
 
 PHONE_NUMBER_ID = os.environ.get(
     "PHONE_NUMBER_ID"
@@ -15,6 +14,7 @@ WHATSAPP_URL = (
     f"{PHONE_NUMBER_ID}/messages"
 )
 
+channel = 'whatsapp'
 
 def lambda_handler(event, context):
 
@@ -45,7 +45,8 @@ def lambda_handler(event, context):
 
     if phone and incoming_text:
 
-        ai_response = get_gemini_response(
+        ai_response = call_openai(
+            channel,
             str(phone),
             incoming_text
         )
@@ -63,7 +64,7 @@ def lambda_handler(event, context):
             data=json.dumps(payload).encode('utf-8'),
             headers={
                 "Content-Type": "application/json",
-                "Authorization": f"Bearer {WHATSAPP_TOKEN}"
+                "Authorization": f"Bearer {TOKEN}"
             },
             method="POST"
         )

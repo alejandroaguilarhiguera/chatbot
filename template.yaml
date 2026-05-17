@@ -12,6 +12,7 @@ Globals:
       LogFormat: JSON
   Api:
     TracingEnabled: true
+
 Parameters:
   GeminiToken:
     Type: String
@@ -36,24 +37,24 @@ Resources:
     Type: AWS::DynamoDB::Table
     Properties:
       TableName: ChatHistory
-      BillingMode: PAY_PER_REQUEST   # Sin costo fijo, pagas por uso
+      BillingMode: PAY_PER_REQUEST
       PointInTimeRecoverySpecification:
         PointInTimeRecoveryEnabled: true
       AttributeDefinitions:
-        - AttributeName: chat_id      # ID del chat de Telegram
+        - AttributeName: chat_id      # Partition key
           AttributeType: S
-        - AttributeName: timestamp    # Momento del mensaje
+        - AttributeName: timestamp    # Sort key
           AttributeType: S
       KeySchema:
-        - AttributeName: chat_id      # Partition key → agrupa por usuario
+        - AttributeName: chat_id
           KeyType: HASH
-        - AttributeName: timestamp    # Sort key → ordena los mensajes
+        - AttributeName: timestamp
           KeyType: RANGE
       TimeToLiveSpecification:
-        AttributeName: ttl            # Los registros se borran solos
+        AttributeName: ttl
         Enabled: true
 
-  # ── Lambda ────────────────────────────────────────────────────────
+
   BotWebhookTelegram:
     Type: AWS::Serverless::Function
     Properties:
@@ -66,16 +67,15 @@ Resources:
         Variables:
           TZ: "America/Mazatlan"
           LOCAL: "false"
-          CHAT_HISTORY_TABLE: !Ref ChatHistoryTable   # 👈 Nombre de la tabla
-          HISTORY_TTL_DAYS: "30"                      # 👈 Días antes de borrar
+          CHAT_HISTORY_TABLE: !Ref ChatHistoryTable
+          HISTORY_TTL_DAYS: "30"
           GEMINI_TOKEN: !Ref GeminiToken       
           TELEGRAM_TOKEN: !Ref TelegramToken    
           GROQ_API_KEY: !Ref GroqApiKey
           OPENAI_TOKEN: !Ref OpenAIToken
           GOOGLE_SERVICE_ACCOUNT_JSON: !Ref GoogleServiceAccountJson
-
       Policies:
-        - DynamoDBCrudPolicy:                         # 👈 Permisos a la tabla
+        - DynamoDBCrudPolicy:
             TableName: !Ref ChatHistoryTable
       Events:
         ApiPostCode:
@@ -83,31 +83,22 @@ Resources:
           Properties:
             Path: /bot-webhook
             Method: post
+
   BotWebhookWhatsapp:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: src/
       Handler: bot_webhook_whatsapp.app.lambda_handler
       Runtime: python3.13
-  
-      # Environment:
-      #   Variables:
-      #     GEMINI_TOKEN: !Ref GeminiToken
-      #     WHATSAPP_TOKEN: !Ref WhatsAppToken
-      #     PHONE_NUMBER_ID: !Ref PhoneNumberId
-      #     VERIFY_TOKEN: !Ref VerifyToken
-      #     CHAT_HISTORY_TABLE: !Ref ChatHistoryTable
-  
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref ChatHistoryTable
-  
       Events:
         Api:
           Type: Api
           Properties:
             Path: /bot-webhook-whatsapp
-            Method: POST
+            Method: post
 
   ListEvents:
     Type: AWS::Serverless::Function
@@ -115,20 +106,9 @@ Resources:
       CodeUri: src/
       Handler: list_events.app.lambda_handler
       Runtime: python3.13
-  
       Environment:
         Variables:
           GOOGLE_SERVICE_ACCOUNT_JSON: !Ref GoogleServiceAccountJson
-      #     GEMINI_TOKEN: !Ref GeminiToken
-      #     WHATSAPP_TOKEN: !Ref WhatsAppToken
-      #     PHONE_NUMBER_ID: !Ref PhoneNumberId
-      #     VERIFY_TOKEN: !Ref VerifyToken
-      #     CHAT_HISTORY_TABLE: !Ref ChatHistoryTable
-  
-      # Policies:
-      #   - DynamoDBCrudPolicy:
-      #       TableName: !Ref ChatHistoryTable
-  
       Events:
         Api:
           Type: Api

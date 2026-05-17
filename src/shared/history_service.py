@@ -13,11 +13,12 @@ table = dynamodb.Table(
 TTL_DAYS = int(os.environ.get('HISTORY_TTL_DAYS', 30))
 
 
-def save_message(chat_id: str, role: str, text: str):
+def save_message(channel: str, chat_id: str, role: str, text: str):
     now = datetime.now(timezone.utc)
     ttl = int((now + timedelta(days=TTL_DAYS)).timestamp())
 
     table.put_item(Item={
+        'channel':   channel,
         'chat_id':   str(chat_id),
         'timestamp': now.isoformat(),
         'role':      role,

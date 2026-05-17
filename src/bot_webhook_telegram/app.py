@@ -4,14 +4,12 @@ import urllib.request
 import urllib.parse
 
 from shared.openai import call_openai
-# from shared.gemini import call_gemini
-# from shared.groq import call_groq
 
 TOKEN = os.environ.get("TELEGRAM_TOKEN")
 
-TELEGRAM_URL = (
-    f"https://api.telegram.org/bot{TOKEN}/sendMessage"
-)
+TELEGRAM_URL = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
+
+channel = 'telegram'
 
 def lambda_handler(event, context):
 
@@ -26,11 +24,13 @@ def lambda_handler(event, context):
     if chat_id and incoming_text:
 
         ai_response = call_openai(
+            channel,
             str(chat_id),
             incoming_text
         )
 
         data = urllib.parse.urlencode({
+            'channel': channel,
             'chat_id': chat_id,
             'text': ai_response
         }).encode('utf-8')
