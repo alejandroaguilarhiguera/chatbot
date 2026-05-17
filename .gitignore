@@ -198,6 +198,7 @@ env.bak/
 venv.bak/
 
 samconfig.toml
+aws/*
 
 # Spyder project settings
 .spyderproject
