@@ -1,4 +1,4 @@
-# bot-app
+# Integracion con telegram
 
 
 ## Paso 1 registrarse en BotFather
@@ -77,3 +77,16 @@ Al enviar un mensaje telegram el servidor responde lo siguiente:
   }
 }
 ```
+
+
+# Integracion con whatsapp(twilio)
+
+## Registro de una cuenta en twilio
+Conseguir lo siguiente:
+* account_sid
+* auth_token
+
+# Integracion con OpenAI
+# Integracion con Gemini
+# Integracion con Groq
+# Integracion con Google calendar

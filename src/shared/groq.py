@@ -6,11 +6,10 @@ from datetime import datetime
 
 from shared.history_service import save_message, get_history
 from shared.prompts import rules
-from shared.google_calendar import (
-    book_appointment_google, 
-    remove_appointment_google,
-    get_calendar_events_google
-)
+from shared.google_calendar.book_appointment_google import book_appointment_google
+from shared.google_calendar.remove_appointment_google import remove_appointment_google
+from shared.google_calendar.get_calendar_events_google import get_calendar_events_google 
+
 
 logger = logging.getLogger()
 
