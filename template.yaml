@@ -29,6 +29,13 @@ Parameters:
   GoogleServiceAccountJson:
     Type: String
     NoEcho: true
+  TwilioAccountSid:
+    Type: String
+    NoEcho: true
+  TwilioAuthToken:
+    Type: String
+    NoEcho: true
+
 
 Resources:
 
@@ -89,6 +96,8 @@ Resources:
     Properties:
       CodeUri: src/
       Handler: bot_webhook_whatsapp.app.lambda_handler
+      Timeout: 15
+      MemorySize: 128
       Runtime: python3.13
       Policies:
         - DynamoDBCrudPolicy:
@@ -99,6 +108,16 @@ Resources:
           Properties:
             Path: /bot-webhook-whatsapp
             Method: post
+      Environment:
+        Variables:
+          TZ: "America/Mazatlan"
+          CHAT_HISTORY_TABLE: !Ref ChatHistoryTable
+          GEMINI_TOKEN: !Ref GeminiToken       
+          GROQ_API_KEY: !Ref GroqApiKey
+          OPENAI_TOKEN: !Ref OpenAIToken
+          GOOGLE_SERVICE_ACCOUNT_JSON: !Ref GoogleServiceAccountJson
+          TWILIO_ACCOUNT_SID: !Ref TwilioAccountSid
+          TWILIO_AUTH_TOKEN: !Ref TwilioAuthToken
 
   ListEvents:
     Type: AWS::Serverless::Function

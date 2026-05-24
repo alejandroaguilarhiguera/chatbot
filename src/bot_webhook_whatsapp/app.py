@@ -1,75 +1,40 @@
 import os
+from twilio.rest import Client
 import json
-import urllib.request
+from urllib.parse import parse_qs
 from shared.openai import call_openai
 
-TOKEN = os.environ.get("WHATSAPP_TOKEN")
+account_sid = os.environ.get("TWILIO_ACCOUNT_SID")
+auth_token = os.environ.get("TWILIO_AUTH_TOKEN")
 
-PHONE_NUMBER_ID = os.environ.get(
-    "PHONE_NUMBER_ID"
-)
-
-WHATSAPP_URL = (
-    f"https://graph.facebook.com/v23.0/"
-    f"{PHONE_NUMBER_ID}/messages"
-)
-
+client = Client(account_sid, auth_token)
 channel = 'whatsapp'
 
 def lambda_handler(event, context):
+    body = event.get('body', '')
+    
+    if event.get('isBase64Encoded', False):
+        import base64
+        body = base64.b64decode(body).decode('utf-8')
+    
+    params = parse_qs(body)
 
-    body = json.loads(event['body'])
-
-    entry = body['entry'][0]
-
-    changes = entry['changes'][0]
-
-    value = changes['value']
-
-    if 'messages' not in value:
-        return {
-            "statusCode": 200,
-            "body": json.dumps({
-                "ok": True
-            })
-        }
-
-    message = value['messages'][0]
-
-    phone = message['from']
-
-    incoming_text = (
-        message.get('text', {})
-        .get('body', '')
+    message = params.get('Body', [''])[0]
+    from_number = params.get('From', [''])[0]
+    to = params.get('To', [''])[0]
+    wa_id = params.get('WaId', [''])[0]
+    
+    ai_response = call_openai(
+        channel,
+        str(wa_id),
+        message
     )
 
-    if phone and incoming_text:
-
-        ai_response = call_openai(
-            channel,
-            str(phone),
-            incoming_text
-        )
-
-        payload = {
-            "messaging_product": "whatsapp",
-            "to": phone,
-            "text": {
-                "body": ai_response
-            }
-        }
-
-        req = urllib.request.Request(
-            WHATSAPP_URL,
-            data=json.dumps(payload).encode('utf-8'),
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {TOKEN}"
-            },
-            method="POST"
-        )
-
-        urllib.request.urlopen(req)
+    message = client.messages.create(
+      body=ai_response,
+      from_=to,
+      to=from_number
+    )
 
     return {
         "statusCode": 200,
