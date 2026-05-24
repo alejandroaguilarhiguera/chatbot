@@ -14,6 +14,13 @@ Globals:
     TracingEnabled: true
 
 Parameters:
+  Environment:
+    Type: String
+    AllowedValues: [qa, prod]
+    Default: qa
+  TZ:
+    Type: String
+    Default: "America/Mazatlan"
   GeminiToken:
     Type: String
     NoEcho: true
@@ -41,12 +48,18 @@ Parameters:
 
 
 Resources:
+  BotApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: !Ref Environment
+      TracingEnabled: true
+      OpenApiVersion: 3.0.1
 
   # ── Tabla DynamoDB para historial de chat ──────────────────────────
   ChatHistoryTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: ChatHistory
+      TableName: !Sub "ChatHistory-${Environment}"
       BillingMode: PAY_PER_REQUEST
       PointInTimeRecoverySpecification:
         PointInTimeRecoveryEnabled: true
@@ -75,7 +88,7 @@ Resources:
       MemorySize: 128
       Environment:
         Variables:
-          TZ: "America/Mazatlan"
+          TZ: !Ref TZ
           LOCAL: "false"
           CHAT_HISTORY_TABLE: !Ref ChatHistoryTable
           HISTORY_TTL_DAYS: "30"
@@ -92,7 +105,8 @@ Resources:
         ApiPostCode:
           Type: Api
           Properties:
-            Path: /bot-webhook
+            RestApiId: !Ref BotApi 
+            Path: /webhook-telegram
             Method: post
 
   BotWebhookWhatsapp:
@@ -110,11 +124,12 @@ Resources:
         Api:
           Type: Api
           Properties:
-            Path: /bot-webhook-whatsapp
+            RestApiId: !Ref BotApi 
+            Path: /webhook-whatsapp
             Method: post
       Environment:
         Variables:
-          TZ: "America/Mazatlan"
+          TZ: !Ref TZ
           CHAT_HISTORY_TABLE: !Ref ChatHistoryTable
           GEMINI_TOKEN: !Ref GeminiToken       
           GROQ_API_KEY: !Ref GroqApiKey
@@ -137,6 +152,7 @@ Resources:
         Api:
           Type: Api
           Properties:
+            RestApiId: !Ref BotApi
             Path: /list-events
             Method: GET
 
@@ -145,3 +161,9 @@ Outputs:
     Value: !Ref ChatHistoryTable
   ChatHistoryTableArn:
     Value: !GetAtt ChatHistoryTable.Arn
+  TelegramWebhookUrl:
+    Value: !Sub "https://${BotApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/webhook-telegram"
+  WhatsappWebhookUrl:
+    Value: !Sub "https://${BotApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/webhook-whatsapp"
+  ListEventsUrl:
+    Value: !Sub "https://${BotApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/list-events"
