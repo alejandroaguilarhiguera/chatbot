@@ -8,8 +8,10 @@ from shared.prompts import rules
 from shared.google_calendar.book_appointment_google import book_appointment_google
 from shared.google_calendar.remove_appointment_google import remove_appointment_google
 from shared.google_calendar.get_calendar_events_google import get_calendar_events_google 
+from shared.messages import get_message 
 
 logger = logging.getLogger()
+lang = "es"
 
 OPENAI_TOKEN = os.environ.get("OPENAI_TOKEN", "")
 
@@ -60,11 +62,11 @@ def get_response_openai(user_message: str, model="gpt-4.1-mini") -> tuple[bool, 
     except urllib.error.HTTPError as e:
         error_body = e.read().decode("utf-8")
         logger.error(f"HTTP Error OpenAI: {e.code} - {error_body}")
-        return False, "Error de comunicación con OpenAI."
+        return False, get_message("technical_error", lang)
 
     except Exception as e:
         logger.error(f"Error OpenAI: {str(e)}")
-        return False, "Error interno al procesar la respuesta."
+        return False, get_message("technical_error", lang)
 
 def call_openai(channel: str, chat_id: str, user_message: str, model="gpt-4.1-mini"):
     save_message(channel, chat_id, 'user', user_message)
@@ -198,9 +200,7 @@ def call_openai(channel: str, chat_id: str, user_message: str, model="gpt-4.1-mi
                             f"payload={json.dumps(payload, ensure_ascii=False)}"
                         )
 
-                        ok, response_text = get_response_openai(
-                            prompt_result
-                        )
+                        ok, response_text = get_response_openai(prompt_result)
 
                     elif success == False and payload.get("code") == "SLOT_OCCUPIED":
                         success_events, events = get_calendar_events_google(f"{date} {hour}")
@@ -220,7 +220,8 @@ def call_openai(channel: str, chat_id: str, user_message: str, model="gpt-4.1-mi
                         ok, response_text = get_response_openai(prompt_result)
 
                     else:
-                        response_text = "Hubo un error al intentar agendar la cita."
+                        logger.error("Hubo un error al intentar agendar la cita.")
+                        response_text = get_message("error_book", lang)
 
                 elif function_name == "remove_book_appointment":
 
@@ -238,12 +239,12 @@ def call_openai(channel: str, chat_id: str, user_message: str, model="gpt-4.1-mi
                         prompt_result
                     )
                 else:
-                    response_text = "La herramienta solicitada no es válida."
+                    logger.error("La herramienta solicitada no es válida.")
+                    response_text = get_message("tool_invalid", lang)
             else:
-                response_text = message.get(
-                    "content",
-                    "No pude procesar tu solicitud."
-                )
+                logger.error("No pude procesar la solicitud")
+                response_text = get_message("technical_error", lang)
+                
 
 
     except urllib.error.HTTPError as e:
@@ -254,43 +255,26 @@ def call_openai(channel: str, chat_id: str, user_message: str, model="gpt-4.1-mi
             f"OpenAI HTTP {e.code}: {error_body}"
         )
 
-        try:
-            error_json = json.loads(error_body)
+        error_json = json.loads(error_body)
 
-            error_code = (
-                error_json
-                .get("error", {})
-                .get("code")
-            )
+        error_code = (
+            error_json
+            .get("error", {})
+            .get("code")
+        )
 
-            if error_code == "billing_not_active":
-                response_text = (
-                    "La cuenta de OpenAI no tiene billing activo."
-                )
+        if error_code == "billing_not_active":
+            # TODO: Change model
+            logger.error("La cuenta de OpenAI no tiene billing activo.")
+        elif error_code == "invalid_api_key":
+            logger.error("El apikey OpenAI es invalida.")
+        else:
+            logger.error("Hubo un problema con OpenAI.")
 
-            elif error_code == "invalid_api_key":
-                response_text = (
-                    "La API key de OpenAI es inválida."
-                )
-
-            else:
-                response_text = (
-                    "Hubo un problema con OpenAI."
-                )
-
-        except Exception:
-            response_text = (
-                "Hubo un problema con OpenAI."
-            )
+        response_text = get_message("technical_error", lang)
     except Exception as e:
-
-        logger.error(
-            f"Error OpenAI: {str(e)}"
-        )
-
-        response_text = (
-            "Tengo problemas técnicos para procesar tu solicitud."
-        )
+        logger.error(f"Error OpenAI: {str(e)}")
+        response_text = get_message("technical_error", lang)
 
     save_message(channel, chat_id, 'assistant', response_text)
 

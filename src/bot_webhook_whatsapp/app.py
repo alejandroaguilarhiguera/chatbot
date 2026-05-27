@@ -2,7 +2,12 @@ import os
 from twilio.rest import Client
 import json
 from urllib.parse import parse_qs
+from shared.contact import upsert_contact
 from shared.openai import call_openai
+from shared.gemini import call_gemini
+from shared.groq import call_groq
+from shared.bots import get_bot
+from whatsapp import get_data_from_event, send_message
 
 account_sid = os.environ.get("TWILIO_ACCOUNT_SID")
 auth_token = os.environ.get("TWILIO_AUTH_TOKEN")
@@ -11,32 +16,47 @@ client = Client(account_sid, auth_token)
 channel = 'whatsapp'
 
 def lambda_handler(event, context):
-    body = event.get('body', '')
-    
-    if event.get('isBase64Encoded', False):
-        import base64
-        body = base64.b64decode(body).decode('utf-8')
-    
-    params = parse_qs(body)
+    message, from_number, to, phone_id = get_data_from_event(event)
 
-    message = params.get('Body', [''])[0]
-    from_number = params.get('From', [''])[0]
-    to = params.get('To', [''])[0]
-    wa_id = params.get('WaId', [''])[0]
-    
-    ai_response = call_openai(
-        channel,
-        str(wa_id),
-        message
-    )
+    if not message:
+        return {
+            "statusCode": 200,
+            "body": json.dumps({"ignored": True})
+        }
+    if not phone_id:
+        return {
+            "statusCode": 400,
+            "body": json.dumps({"error": "No se envio el ID del remitente"})
+        }
+    default_contact = {
+        "phone": phone_id,
+        "channel": channel,
+        "model_ai": 'groq'
+    }
 
-    message = client.messages.create(
-      body=ai_response,
-      from_=to,
-      to=from_number
-    )
+    bot = get_bot(phone_id)
+    contact = upsert_contact(default_contact, bot["tenant"])
 
+    if contact["model_ai"] == "gemini":
+        ai_response = call_gemini(
+            channel,
+            str(phone_id),
+            message
+        )
+    elif contact["model_ai"] == "openai":
+        ai_response = call_openai(
+            channel,
+            str(phone_id),
+            message
+        )
+    else:
+        ai_response = call_groq(
+            channel,
+            str(phone_id),
+            message
+        )
+    send_message(from_number, to, ai_response)
     return {
         "statusCode": 200,
-        "body": json.dumps({"ok": True})
+        "body": json.dumps({"ok": True, "response": (ai_response)})
     }

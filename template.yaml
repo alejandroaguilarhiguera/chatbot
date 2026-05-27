@@ -46,7 +46,6 @@ Parameters:
     Type: String
     NoEcho: true
 
-
 Resources:
   BotApi:
     Type: AWS::Serverless::Api
@@ -55,11 +54,40 @@ Resources:
       TracingEnabled: true
       OpenApiVersion: 3.0.1
 
-  # ── Tabla DynamoDB para historial de chat ──────────────────────────
+  ContactsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "Contacts-${Environment}"
+      BillingMode: PAY_PER_REQUEST
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      AttributeDefinitions:
+        - AttributeName: tenant
+          AttributeType: S
+        - AttributeName: phone
+          AttributeType: S
+      KeySchema:
+        - AttributeName: tenant
+          KeyType: HASH
+        - AttributeName: phone
+          KeyType: RANGE
+
+  BotsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "Bots-${Environment}"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: bot_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: bot_id
+          KeyType: HASH
+
   ChatHistoryTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Sub "ChatHistory-${Environment}"
+      TableName: !Sub "ChatHistoryTable-${Environment}"
       BillingMode: PAY_PER_REQUEST
       PointInTimeRecoverySpecification:
         PointInTimeRecoveryEnabled: true
@@ -90,7 +118,9 @@ Resources:
         Variables:
           TZ: !Ref TZ
           LOCAL: "false"
-          CHAT_HISTORY_TABLE: !Ref ChatHistoryTable
+          CHAT_HISTORY_TABLE: !Sub "ChatHistoryTable-${Environment}"
+          CONTACTS_TABLE: !Sub "Contacts-${Environment}"
+          BOTS_TABLE: !Sub "Bots-${Environment}"
           HISTORY_TTL_DAYS: "30"
           GEMINI_TOKEN: !Ref GeminiToken       
           TELEGRAM_TOKEN: !Ref TelegramToken    
@@ -101,6 +131,10 @@ Resources:
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref ChatHistoryTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ContactsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref BotsTable
       Events:
         ApiPostCode:
           Type: Api
@@ -120,6 +154,10 @@ Resources:
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref ChatHistoryTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ContactsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref BotsTable
       Events:
         Api:
           Type: Api
@@ -130,7 +168,9 @@ Resources:
       Environment:
         Variables:
           TZ: !Ref TZ
-          CHAT_HISTORY_TABLE: !Ref ChatHistoryTable
+          CHAT_HISTORY_TABLE: !Sub "ChatHistoryTable-${Environment}"
+          CONTACTS_TABLE: !Sub "Contacts-${Environment}"
+          BOTS_TABLE: !Sub "Bots-${Environment}"
           GEMINI_TOKEN: !Ref GeminiToken       
           GROQ_API_KEY: !Ref GroqApiKey
           OPENAI_TOKEN: !Ref OpenAIToken
@@ -161,6 +201,10 @@ Outputs:
     Value: !Ref ChatHistoryTable
   ChatHistoryTableArn:
     Value: !GetAtt ChatHistoryTable.Arn
+  ContactsTableName:
+    Value: !Ref ContactsTable
+  ContactsTableArn:
+    Value: !GetAtt ContactsTable.Arn
   TelegramWebhookUrl:
     Value: !Sub "https://${BotApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/webhook-telegram"
   WhatsappWebhookUrl:

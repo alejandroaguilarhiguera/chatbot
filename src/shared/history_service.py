@@ -1,4 +1,6 @@
+from http import client
 import os
+from urllib import response
 import boto3
 
 from datetime import datetime, timezone, timedelta
@@ -6,14 +8,19 @@ from boto3.dynamodb.conditions import Key
 
 dynamodb = boto3.resource('dynamodb')
 
-table = dynamodb.Table(
-    os.environ.get('CHAT_HISTORY_TABLE', 'ChatHistory')
-)
+table = dynamodb.Table(os.environ.get('CHAT_HISTORY_TABLE'))
 
 TTL_DAYS = int(os.environ.get('HISTORY_TTL_DAYS', 30))
+client = boto3.client("dynamodb")
 
 
 def save_message(channel: str, chat_id: str, role: str, text: str):
+
+    response = client.list_tables()
+    print("chat history table environment: >>>>> " + str(os.environ.get('CHAT_HISTORY_TABLE')))
+    print("tables: >>>>> " + str(response["TableNames"]))
+
+
     now = datetime.now(timezone.utc)
     ttl = int((now + timedelta(days=TTL_DAYS)).timestamp())
 
@@ -28,7 +35,8 @@ def save_message(channel: str, chat_id: str, role: str, text: str):
 
 def get_history(chat_id: str, limit: int = 10) -> list:
     from boto3.dynamodb.conditions import Key
-
+    print("chat history table environment: >>>>> " + str(os.environ.get('CHAT_HISTORY_TABLE')))
+    print("tables: >>>>> " + str(response["TableNames"]))
     response = table.query(
         KeyConditionExpression=Key('chat_id').eq(str(chat_id)),
         ScanIndexForward=False,
