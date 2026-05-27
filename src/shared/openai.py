@@ -4,7 +4,6 @@ import urllib.request
 import logging
 from datetime import datetime
 from shared.history_service import save_message, get_history
-from shared.prompts import rules
 from shared.google_calendar.book_appointment_google import book_appointment_google
 from shared.google_calendar.remove_appointment_google import remove_appointment_google
 from shared.google_calendar.get_calendar_events_google import get_calendar_events_google 
@@ -28,14 +27,14 @@ def get_date_now():
     day_week = now.strftime("%A")
     return current_date, current_time, day_week
 
-def get_response_openai(user_message: str, model="gpt-4.1-mini") -> tuple[bool, str]:
+def get_response_openai(user_message: str, prompt: str, model="gpt-4.1-mini") -> tuple[bool, str]:
     payload = {
         "model": model,
         "temperature": 0.1,
         "messages": [
             {
                 "role": "system",
-                "content": rules
+                "content": prompt
             },
             {
                 "role": "user",
@@ -68,9 +67,12 @@ def get_response_openai(user_message: str, model="gpt-4.1-mini") -> tuple[bool, 
         logger.error(f"Error OpenAI: {str(e)}")
         return False, get_message("technical_error", lang)
 
-def call_openai(channel: str, chat_id: str, user_message: str, model="gpt-4.1-mini"):
-    save_message(channel, chat_id, 'user', user_message)
-    history = get_history(chat_id, limit=10)
+def call_openai(data, model="gpt-4.1-mini"):
+    channel = data.channel
+    phone_id = data.phone_id
+    prompt = data.prompt
+    save_message(channel, phone_id, 'user', data.message)
+    history = get_history(phone_id, limit=10)
     messages = [
         {
             "role": msg['role'],
@@ -79,21 +81,9 @@ def call_openai(channel: str, chat_id: str, user_message: str, model="gpt-4.1-mi
         for msg in history
     ]
 
-    current_date, current_time, day_week = get_date_now()
-
-    system_message = (
-        f"{rules}\n\n"
-        f"Fecha actual: {current_date}\n"
-        f"Hora actual: {current_time}\n"
-        f"Día actual: {day_week}\n\n"
-        f"INSTRUCCIONES DE HERRAMIENTAS:\n"
-        f"- Usa 'book_appointment' para crear citas.\n"
-        f"- Usa 'remove_book_appointment' para eliminar citas."
-    )
-
     messages.insert(0, {
         "role": "system",
-        "content": system_message
+        "content": prompt
     })
 
     # Tools
@@ -200,7 +190,7 @@ def call_openai(channel: str, chat_id: str, user_message: str, model="gpt-4.1-mi
                             f"payload={json.dumps(payload, ensure_ascii=False)}"
                         )
 
-                        ok, response_text = get_response_openai(prompt_result)
+                        ok, response_text = get_response_openai(prompt_result, prompt)
 
                     elif success == False and payload.get("code") == "SLOT_OCCUPIED":
                         success_events, events = get_calendar_events_google(f"{date} {hour}")
@@ -217,7 +207,7 @@ def call_openai(channel: str, chat_id: str, user_message: str, model="gpt-4.1-mi
                                 "Genera una respuesta corta y amigable para el usuario "
                                 "La fecha en la que el usuario intentó agendar una cita esta ocupada {date} {hour}. "
                             )
-                        ok, response_text = get_response_openai(prompt_result)
+                        ok, response_text = get_response_openai(prompt_result, prompt)
 
                     else:
                         logger.error("Hubo un error al intentar agendar la cita.")
@@ -235,9 +225,7 @@ def call_openai(channel: str, chat_id: str, user_message: str, model="gpt-4.1-mi
                         f"success={success}\n"
                         f"payload={json.dumps(payload, ensure_ascii=False)}"
                     )
-                    ok, response_text = get_response_openai(
-                        prompt_result
-                    )
+                    ok, response_text = get_response_openai(prompt_result, prompt)
                 else:
                     logger.error("La herramienta solicitada no es válida.")
                     response_text = get_message("tool_invalid", lang)
@@ -276,6 +264,6 @@ def call_openai(channel: str, chat_id: str, user_message: str, model="gpt-4.1-mi
         logger.error(f"Error OpenAI: {str(e)}")
         response_text = get_message("technical_error", lang)
 
-    save_message(channel, chat_id, 'assistant', response_text)
+    save_message(channel, phone_id, 'assistant', response_text)
 
     return response_text

@@ -9,7 +9,7 @@ account_sid = os.environ.get("TWILIO_ACCOUNT_SID")
 auth_token = os.environ.get("TWILIO_AUTH_TOKEN")
 
 client = Client(account_sid, auth_token)
-
+channel = 'whatsapp'
 
 @dataclass
 class WhatsappEventData:
@@ -20,6 +20,8 @@ class WhatsappEventData:
     to: str
     phone_id: str
     lang: str | None
+    channel: str
+    prompt: str | None = None
 
 
 def get_data_from_event(event) -> WhatsappEventData:
@@ -51,7 +53,8 @@ def get_data_from_event(event) -> WhatsappEventData:
         from_=from_number,
         to=to,
         phone_id=phone_id,
-        lang=None
+        lang=None,
+        channel=channel,
     )
 
 

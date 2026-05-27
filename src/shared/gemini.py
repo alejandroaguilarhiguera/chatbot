@@ -6,7 +6,6 @@ import logging
 from shared.get_date_now import get_date_now
 
 from shared.history_service import save_message, get_history
-from shared.prompts import rules
 from shared.google_calendar.book_appointment_google import book_appointment_google
 from shared.google_calendar.remove_appointment_google import remove_appointment_google
 from shared.google_calendar.get_calendar_events_google import get_calendar_events_google 
@@ -16,7 +15,7 @@ logger = logging.getLogger()
 
 GEMINI_TOKEN = os.environ.get("GEMINI_TOKEN", "")
 
-def get_response_gemini(user_message: str) -> tuple[bool, str]:
+def get_response_gemini(user_message: str, prompt: str) -> tuple[bool, str]:
     url = (
         "https://generativelanguage.googleapis.com/"
         f"v1beta/models/gemini-2.5-flash:generateContent"
@@ -25,7 +24,7 @@ def get_response_gemini(user_message: str) -> tuple[bool, str]:
 
     payload = {
         "systemInstruction": {
-            "parts": [{"text": rules}]
+            "parts": [{"text": prompt}]
         },
         "contents": [
             {
@@ -66,10 +65,13 @@ def get_response_gemini(user_message: str) -> tuple[bool, str]:
         return False, "Error interno al procesar la respuesta."
 
 
-def call_gemini(channel: str, chat_id: str, user_message: str) -> str:
+def call_gemini(data) -> str:
     # 1. Guardar mensaje usuario y recuperar historial
-    save_message(channel, chat_id, 'user', user_message)
-    history = get_history(chat_id, limit=10)
+    channel = data.channel
+    phone_id = data.phone_id
+    prompt = data.prompt
+    save_message(channel, phone_id, 'user', data.message)
+    history = get_history(phone_id, limit=10)
 
     contents = [
         {
@@ -78,19 +80,6 @@ def call_gemini(channel: str, chat_id: str, user_message: str) -> str:
         }
         for msg in history
     ]
-
-    # 2. Contexto Temporal
-    current_date, current_time, day_week = get_date_now()
-
-    system_prompt = (
-        f"{rules}\n\n"
-        f"Fecha actual: {current_date}\n"
-        f"Hora actual: {current_time}\n"
-        f"Día actual: {day_week}\n\n"
-        f"INSTRUCCIONES DE HERRAMIENTAS:\n"
-        f"- Usa 'book_appointment' para crear citas.\n"
-        f"- Usa 'remove_book_appointment' para eliminar citas."
-    )
 
     url = (
         "https://generativelanguage.googleapis.com/"
@@ -133,7 +122,7 @@ def call_gemini(channel: str, chat_id: str, user_message: str) -> str:
 
     payload = {
         "systemInstruction": {
-            "parts": [{"text": system_prompt}]
+            "parts": [{"text": prompt}]
         },
         "contents": contents,
         "tools": tools,
@@ -191,7 +180,7 @@ def call_gemini(channel: str, chat_id: str, user_message: str) -> str:
                                     f"success={success}\n"
                                     f"payload={json.dumps(payload_resp, ensure_ascii=False)}"
                                 )
-                                ok, response_text = get_response_gemini(prompt_result)
+                                ok, response_text = get_response_gemini(prompt_result, prompt)
 
                             elif success == False and payload_resp.get("code") == "SLOT_OCCUPIED":
                                 success_events, events = get_calendar_events_google(f"{date} {hora}")
@@ -208,7 +197,7 @@ def call_gemini(channel: str, chat_id: str, user_message: str) -> str:
                                         "Genera una respuesta corta y amigable para el usuario "
                                         f"La fecha en la que el usuario intentó agendar una cita esta ocupada {date} {hora}. "
                                     )
-                                ok, response_text = get_response_gemini(prompt_result)
+                                ok, response_text = get_response_gemini(prompt_result, prompt)
 
                             else:
                                 response_text = "Hubo un error al intentar agendar la cita."
@@ -221,7 +210,7 @@ def call_gemini(channel: str, chat_id: str, user_message: str) -> str:
                                 f"success={success}\n"
                                 f"payload={json.dumps(payload_resp, ensure_ascii=False)}"
                             )
-                            ok, response_text = get_response_gemini(prompt_result)
+                            ok, response_text = get_response_gemini(prompt_result, prompt)
 
                         else:
                             response_text = "La herramienta solicitada no es válida."
@@ -252,6 +241,6 @@ def call_gemini(channel: str, chat_id: str, user_message: str) -> str:
         response_text = "Tengo problemas técnicos para procesar tu solicitud."
 
     # 4. Guardar respuesta
-    save_message(channel, chat_id, 'assistant', response_text)
+    save_message(channel, phone_id, 'assistant', response_text)
 
     return response_text

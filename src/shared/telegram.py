@@ -6,6 +6,7 @@ from dataclasses import dataclass
 
 TOKEN = os.environ.get("TELEGRAM_TOKEN")
 TELEGRAM_URL = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
+channel= 'telegram'
 
 @dataclass
 class TelegramEventData:
@@ -16,6 +17,8 @@ class TelegramEventData:
     to: str
     phone_id: str
     lang: str
+    channel: str
+    prompt: str | None = None
 
 
 def get_data_from_event(event) -> TelegramEventData:
@@ -36,13 +39,14 @@ def get_data_from_event(event) -> TelegramEventData:
         from_=phone_id,
         to=TELEGRAM_URL,
         phone_id=phone_id,
-        lang=lang
+        lang=lang,
+        channel=channel,
     )
 
 
 def send_message(to: str, phone_id: str, ai_response: str):
     data = urllib.parse.urlencode({
-        'channel': 'telegram',
+        'channel': channel,
         'chat_id': phone_id,
         'text': ai_response
     }).encode('utf-8')

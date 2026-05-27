@@ -5,7 +5,6 @@ import logging
 from datetime import datetime
 
 from shared.history_service import save_message, get_history
-from shared.prompts import rules
 from shared.google_calendar.book_appointment_google import book_appointment_google
 from shared.google_calendar.remove_appointment_google import remove_appointment_google
 from shared.google_calendar.get_calendar_events_google import get_calendar_events_google 
@@ -29,14 +28,14 @@ def get_date_now():
     day_week = now.strftime("%A")
     return current_date, current_time, day_week
 
-def get_response_groq(user_message: str, model="llama-3.3-70b-versatile") -> tuple[bool, str]:
+def get_response_groq(user_message: str, prompt: str, model="llama-3.3-70b-versatile") -> tuple[bool, str]:
     payload = {
         "model": model,
         "temperature": 0.1,
         "messages": [
             {
                 "role": "system",
-                "content": rules
+                "content": prompt
             },
             {
                 "role": "user",
@@ -69,31 +68,20 @@ def get_response_groq(user_message: str, model="llama-3.3-70b-versatile") -> tup
         return False, "Error interno al procesar la respuesta."
 
 
-def call_groq(channel: str, chat_id: str, user_message: str, model="llama-3.3-70b-versatile"):
+def call_groq(data, model="llama-3.3-70b-versatile"):
     # 1. Historial
-    save_message(channel, chat_id, 'user', user_message)
-    history = get_history(chat_id, limit=10)
+    channel = data.channel
+    phone_id = data.phone_id
+    prompt = data.prompt
+    save_message(channel, phone_id, 'user', data.message)
+    history = get_history(phone_id, limit=10)
     
     messages = [
         {"role": msg['role'], "content": msg['message']}
         for msg in history
     ]
     
-    # 2. Contexto Temporal
-    current_date, current_time, day_week = get_date_now()
-
-    # Inyectamos el sistema con máxima prioridad y el contexto de tiempo
-    system_message = (
-        f"{rules}\n\n"
-        f"Fecha actual: {current_date}\n"
-        f"Hora actual: {current_time}\n"
-        f"Día actual: {day_week}\n\n"
-        f"INSTRUCCIONES DE HERRAMIENTAS:\n"
-        f"- Usa 'book_appointment' para crear citas.\n"
-        f"- Usa 'remove_book_appointment' para eliminar citas."
-    )
-    
-    messages.insert(0, {"role": "system", "content": system_message})
+    messages.insert(0, {"role": "system", "content": prompt})
 
     # 3. Herramientas
     tools = [
@@ -169,7 +157,7 @@ def call_groq(channel: str, chat_id: str, user_message: str, model="llama-3.3-70
                             f"success={success}\n"
                             f"payload={json.dumps(payload, ensure_ascii=False)}"
                         )
-                        ok, response_text = get_response_groq(prompt_result, model)
+                        ok, response_text = get_response_groq(prompt_result, prompt, model)
 
                     elif success == False and payload.get("code") == "SLOT_OCCUPIED":
                         success_events, events = get_calendar_events_google(f"{date} {hour}")
@@ -186,7 +174,7 @@ def call_groq(channel: str, chat_id: str, user_message: str, model="llama-3.3-70
                                 "Genera una respuesta corta y amigable para el usuario "
                                 f"La fecha en la que el usuario intentó agendar una cita esta ocupada {date} {hour}. "
                             )
-                        ok, response_text = get_response_groq(prompt_result, model)
+                        ok, response_text = get_response_groq(prompt_result, prompt, model)
 
                     else:
                         response_text = "Hubo un error al intentar agendar la cita."
@@ -200,7 +188,7 @@ def call_groq(channel: str, chat_id: str, user_message: str, model="llama-3.3-70
                         f"success={success}\n"
                         f"payload={json.dumps(payload, ensure_ascii=False)}"
                     )
-                    ok, response_text = get_response_groq(prompt_result, model)
+                    ok, response_text = get_response_groq(prompt_result, prompt, model)
                     
                 else:
                     response_text = "La herramienta solicitada no es válida."
@@ -226,5 +214,5 @@ def call_groq(channel: str, chat_id: str, user_message: str, model="llama-3.3-70
         response_text = "Tengo problemas técnicos para procesar tu solicitud."
 
     # Se agregó 'channel' para igualar el guardado de historial de tu script OpenAI
-    save_message(channel, chat_id, 'assistant', response_text)
+    save_message(channel, phone_id, 'assistant', response_text)
     return response_text
