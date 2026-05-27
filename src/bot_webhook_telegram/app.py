@@ -12,7 +12,6 @@ import boto3
 
 session = boto3.session.Session()
 
-print(session.region_name)
 TOKEN = os.environ.get("TELEGRAM_TOKEN")
 
 TELEGRAM_URL = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
@@ -21,10 +20,7 @@ channel = 'telegram'
 
 def lambda_handler(event, context):
     data = get_data_from_event(event)
-    print("region>>>> "+str(session.region_name))
-    print(">>>>>>>"+str(data))
     message = data.message
-    from_ = data.from_
     to = data.to
     phone_id = data.phone_id
     lang = data.lang
@@ -45,9 +41,7 @@ def lambda_handler(event, context):
         "channel": channel,
         "model_ai": 'groq'
     }
-    print("phone_number>>>> "+str(phone_id))
     bot = get_bot(phone_id)
-    print("phone_number<<<< "+str(phone_id))
     if not bot:
         return {
             "statusCode": 400,
@@ -78,5 +72,5 @@ def lambda_handler(event, context):
 
     return {
         "statusCode": 200,
-        "body": json.dumps({"ok": True, "contact": str(contact)})
+        "body": json.dumps({"ok": True})
     }

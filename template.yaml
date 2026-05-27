@@ -16,11 +16,13 @@ Globals:
 Parameters:
   Environment:
     Type: String
-    AllowedValues: [qa, prod]
+    AllowedValues:
+      - qa
+      - prod
     Default: qa
   TZ:
     Type: String
-    Default: "America/Mazatlan"
+    Default: America/Mazatlan
   GeminiToken:
     Type: String
     NoEcho: true
@@ -92,9 +94,9 @@ Resources:
       PointInTimeRecoverySpecification:
         PointInTimeRecoveryEnabled: true
       AttributeDefinitions:
-        - AttributeName: chat_id      # Partition key
+        - AttributeName: chat_id
           AttributeType: S
-        - AttributeName: timestamp    # Sort key
+        - AttributeName: timestamp
           AttributeType: S
       KeySchema:
         - AttributeName: chat_id
@@ -104,7 +106,6 @@ Resources:
       TimeToLiveSpecification:
         AttributeName: ttl
         Enabled: true
-
 
   BotWebhookTelegram:
     Type: AWS::Serverless::Function
@@ -122,8 +123,8 @@ Resources:
           CONTACTS_TABLE: !Sub "Contacts-${Environment}"
           BOTS_TABLE: !Sub "Bots-${Environment}"
           HISTORY_TTL_DAYS: "30"
-          GEMINI_TOKEN: !Ref GeminiToken       
-          TELEGRAM_TOKEN: !Ref TelegramToken    
+          GEMINI_TOKEN: !Ref GeminiToken
+          TELEGRAM_TOKEN: !Ref TelegramToken
           GROQ_API_KEY: !Ref GroqApiKey
           OPENAI_TOKEN: !Ref OpenAIToken
           GOOGLE_SERVICE_ACCOUNT_JSON: !Ref GoogleServiceAccountJson
@@ -148,9 +149,22 @@ Resources:
     Properties:
       CodeUri: src/
       Handler: bot_webhook_whatsapp.app.lambda_handler
+      Runtime: python3.13
       Timeout: 15
       MemorySize: 128
-      Runtime: python3.13
+      Environment:
+        Variables:
+          TZ: !Ref TZ
+          CHAT_HISTORY_TABLE: !Sub "ChatHistoryTable-${Environment}"
+          CONTACTS_TABLE: !Sub "Contacts-${Environment}"
+          BOTS_TABLE: !Sub "Bots-${Environment}"
+          GEMINI_TOKEN: !Ref GeminiToken
+          GROQ_API_KEY: !Ref GroqApiKey
+          OPENAI_TOKEN: !Ref OpenAIToken
+          GOOGLE_SERVICE_ACCOUNT_JSON: !Ref GoogleServiceAccountJson
+          TWILIO_ACCOUNT_SID: !Ref TwilioAccountSid
+          TWILIO_AUTH_TOKEN: !Ref TwilioAuthToken
+          CALENDAR_ID: !Ref CalendarId
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref ChatHistoryTable
@@ -165,19 +179,6 @@ Resources:
             RestApiId: !Ref BotApi 
             Path: /webhook-whatsapp
             Method: post
-      Environment:
-        Variables:
-          TZ: !Ref TZ
-          CHAT_HISTORY_TABLE: !Sub "ChatHistoryTable-${Environment}"
-          CONTACTS_TABLE: !Sub "Contacts-${Environment}"
-          BOTS_TABLE: !Sub "Bots-${Environment}"
-          GEMINI_TOKEN: !Ref GeminiToken       
-          GROQ_API_KEY: !Ref GroqApiKey
-          OPENAI_TOKEN: !Ref OpenAIToken
-          GOOGLE_SERVICE_ACCOUNT_JSON: !Ref GoogleServiceAccountJson
-          TWILIO_ACCOUNT_SID: !Ref TwilioAccountSid
-          TWILIO_AUTH_TOKEN: !Ref TwilioAuthToken
-          CALENDAR_ID: !Ref CalendarId
 
   ListEvents:
     Type: AWS::Serverless::Function
@@ -205,6 +206,10 @@ Outputs:
     Value: !Ref ContactsTable
   ContactsTableArn:
     Value: !GetAtt ContactsTable.Arn
+  BotsTableName:
+    Value: !Ref BotsTable
+  BotsTableArn:
+    Value: !GetAtt BotsTable.Arn
   TelegramWebhookUrl:
     Value: !Sub "https://${BotApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/webhook-telegram"
   WhatsappWebhookUrl:

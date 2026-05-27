@@ -7,7 +7,7 @@ from shared.openai import call_openai
 from shared.gemini import call_gemini
 from shared.groq import call_groq
 from shared.bots import get_bot
-from whatsapp import get_data_from_event, send_message
+from shared.whatsapp import get_data_from_event, send_message
 
 account_sid = os.environ.get("TWILIO_ACCOUNT_SID")
 auth_token = os.environ.get("TWILIO_AUTH_TOKEN")
@@ -16,7 +16,11 @@ client = Client(account_sid, auth_token)
 channel = 'whatsapp'
 
 def lambda_handler(event, context):
-    message, from_number, to, phone_id = get_data_from_event(event)
+    data = get_data_from_event(event)
+    message = data.message
+    from_ = data.from_
+    to = data.to
+    phone_id = data.phone_id
 
     if not message:
         return {
@@ -35,6 +39,11 @@ def lambda_handler(event, context):
     }
 
     bot = get_bot(phone_id)
+    if not bot:
+        return {
+            "statusCode": 400,
+            "body": json.dumps({"error": "No se encontro un bot para este contacto"})
+        }
     contact = upsert_contact(default_contact, bot["tenant"])
 
     if contact["model_ai"] == "gemini":
@@ -55,8 +64,8 @@ def lambda_handler(event, context):
             str(phone_id),
             message
         )
-    send_message(from_number, to, ai_response)
+    send_message(from_, to, ai_response)
     return {
         "statusCode": 200,
-        "body": json.dumps({"ok": True, "response": (ai_response)})
+        "body": json.dumps({"ok": True})
     }
