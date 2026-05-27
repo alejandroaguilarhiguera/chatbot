@@ -24,12 +24,9 @@ class WhatsappEventData:
 
 def get_data_from_event(event) -> WhatsappEventData:
     body = event.get("body", "")
-
     if event.get("isBase64Encoded", False):
         body = base64.b64decode(body).decode("utf-8")
-
     params = parse_qs(body)
-    print("Parsed params: >>>>> " + str(params))
     message = params.get("Body", [""])[0]
     from_number = params.get("From", [""])[0]
     to = params.get("To", [""])[0]
