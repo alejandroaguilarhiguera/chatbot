@@ -111,9 +111,9 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: src/
-      Handler: bot_webhook_telegram.app.lambda_handler
+      Handler: bot_webhook.controllers.telegram.lambda_handler
       Runtime: python3.13
-      Timeout: 10
+      Timeout: 5
       MemorySize: 128
       Environment:
         Variables:
@@ -129,6 +129,7 @@ Resources:
           OPENAI_TOKEN: !Ref OpenAIToken
           GOOGLE_SERVICE_ACCOUNT_JSON: !Ref GoogleServiceAccountJson
           CALENDAR_ID: !Ref CalendarId
+          # MAKE_MESSAGE_FUNCTION_NAME: !Ref MakeMessage
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref ChatHistoryTable
@@ -136,6 +137,8 @@ Resources:
             TableName: !Ref ContactsTable
         - DynamoDBCrudPolicy:
             TableName: !Ref BotsTable
+        # - LambdaInvokePolicy:
+        #   FunctionName: !Ref MakeMessage
       Events:
         ApiPostCode:
           Type: Api
@@ -148,10 +151,19 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: src/
-      Handler: bot_webhook_whatsapp.app.lambda_handler
+      Handler: bot_webhook.controllers.whatsapp.lambda_handler
       Runtime: python3.13
-      Timeout: 15
+      Timeout: 5
       MemorySize: 128
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ChatHistoryTable
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            Path: /bot-webhook-whatsapp
+            Method: post
       Environment:
         Variables:
           TZ: !Ref TZ
@@ -165,6 +177,7 @@ Resources:
           TWILIO_ACCOUNT_SID: !Ref TwilioAccountSid
           TWILIO_AUTH_TOKEN: !Ref TwilioAuthToken
           CALENDAR_ID: !Ref CalendarId
+          # MAKE_MESSAGE_FUNCTION_NAME: !Ref MakeMessage
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref ChatHistoryTable
@@ -172,6 +185,8 @@ Resources:
             TableName: !Ref ContactsTable
         - DynamoDBCrudPolicy:
             TableName: !Ref BotsTable
+        # - LambdaInvokePolicy:
+        #   FunctionName: !Ref MakeMessage
       Events:
         Api:
           Type: Api

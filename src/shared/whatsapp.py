@@ -58,7 +58,7 @@ def get_data_from_event(event) -> WhatsappEventData:
     )
 
 
-def send_message(from_: str, to: str, message: str):
+def send_message(to:str, from_: str, message: str):
     client.messages.create(
         body=message,
         from_=to,
