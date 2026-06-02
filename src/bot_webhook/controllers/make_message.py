@@ -1,4 +1,5 @@
 import json
+from types import SimpleNamespace
 from shared.contact import upsert_contact
 from shared.bots import get_bot
 from shared.ai import get_ai_response
@@ -13,7 +14,8 @@ CHANNEL_REGISTRY = {
         "send_message": whatsapp_send_message,
     },
 }
-def make_message(data):
+def make_message_handler(event, context):
+    data = SimpleNamespace(**event)
     channel_config = CHANNEL_REGISTRY.get(data.channel)
     if not channel_config:
         return {

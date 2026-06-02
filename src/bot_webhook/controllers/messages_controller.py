@@ -1,6 +1,3 @@
-import json
-# from bot_webhook.make_message import make_message
-# from bot_webhook.controllers.make_message import make_message
 from shared.history_service import save_message
 import boto3, json, os
 
@@ -37,19 +34,20 @@ def process_message(data):
         "user",
         data.message,
     )
+    is_local = os.environ.get("LOCAL", "false").lower() == "true"
+
+    if is_local:
+        from bot_webhook.controllers.make_message import make_message_handler
+        make_message_handler(data.__dict__, context=None)
+    else:
+        lambda_client.invoke(
+            FunctionName=os.environ["MAKE_MESSAGE_FUNCTION_NAME"],
+            InvocationType="Event",
+            Payload=json.dumps(data.__dict__)
+        )
+
 
     return {
         "statusCode": 200,
-        "body": json.dumps({"antes del invoke lambda": True})
+        "body": json.dumps({"ok": True})
     }
-#     # lambda_client.invoke(
-#     #     FunctionName=os.environ["MAKE_MESSAGE_FUNCTION_NAME"],
-#     #     InvocationType="Event",
-#     #     Payload=json.dumps(data).encode()
-#     # )
-#     # print("test 6")
-
-    # return {
-    #     "statusCode": 200,
-    #     "body": json.dumps({"ok": True})
-    # }

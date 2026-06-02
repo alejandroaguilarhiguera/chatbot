@@ -107,6 +107,37 @@ Resources:
         AttributeName: ttl
         Enabled: true
 
+  MakeMessage:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/
+      Handler: bot_webhook.controllers.make_message.make_message_handler
+      Runtime: python3.13
+      Timeout: 30
+      MemorySize: 256
+      Environment:
+        Variables:
+          TZ: !Ref TZ
+          CHAT_HISTORY_TABLE: !Sub "ChatHistoryTable-${Environment}"
+          CONTACTS_TABLE: !Sub "Contacts-${Environment}"
+          BOTS_TABLE: !Sub "Bots-${Environment}"
+          HISTORY_TTL_DAYS: "30"
+          GEMINI_TOKEN: !Ref GeminiToken
+          TELEGRAM_TOKEN: !Ref TelegramToken
+          GROQ_API_KEY: !Ref GroqApiKey
+          OPENAI_TOKEN: !Ref OpenAIToken
+          GOOGLE_SERVICE_ACCOUNT_JSON: !Ref GoogleServiceAccountJson
+          TWILIO_ACCOUNT_SID: !Ref TwilioAccountSid
+          TWILIO_AUTH_TOKEN: !Ref TwilioAuthToken
+          CALENDAR_ID: !Ref CalendarId
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ChatHistoryTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ContactsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref BotsTable
+
   BotWebhookTelegram:
     Type: AWS::Serverless::Function
     Properties:
@@ -129,7 +160,7 @@ Resources:
           OPENAI_TOKEN: !Ref OpenAIToken
           GOOGLE_SERVICE_ACCOUNT_JSON: !Ref GoogleServiceAccountJson
           CALENDAR_ID: !Ref CalendarId
-          # MAKE_MESSAGE_FUNCTION_NAME: !Ref MakeMessage
+          MAKE_MESSAGE_FUNCTION_NAME: !Ref MakeMessage
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref ChatHistoryTable
@@ -137,13 +168,13 @@ Resources:
             TableName: !Ref ContactsTable
         - DynamoDBCrudPolicy:
             TableName: !Ref BotsTable
-        # - LambdaInvokePolicy:
-        #   FunctionName: !Ref MakeMessage
+        - LambdaInvokePolicy:
+            FunctionName: !Ref MakeMessage
       Events:
         ApiPostCode:
           Type: Api
           Properties:
-            RestApiId: !Ref BotApi 
+            RestApiId: !Ref BotApi
             Path: /webhook-telegram
             Method: post
 
@@ -155,15 +186,6 @@ Resources:
       Runtime: python3.13
       Timeout: 5
       MemorySize: 128
-      Policies:
-        - DynamoDBCrudPolicy:
-            TableName: !Ref ChatHistoryTable
-      Events:
-        Api:
-          Type: Api
-          Properties:
-            Path: /bot-webhook-whatsapp
-            Method: post
       Environment:
         Variables:
           TZ: !Ref TZ
@@ -177,7 +199,7 @@ Resources:
           TWILIO_ACCOUNT_SID: !Ref TwilioAccountSid
           TWILIO_AUTH_TOKEN: !Ref TwilioAuthToken
           CALENDAR_ID: !Ref CalendarId
-          # MAKE_MESSAGE_FUNCTION_NAME: !Ref MakeMessage
+          MAKE_MESSAGE_FUNCTION_NAME: !Ref MakeMessage
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref ChatHistoryTable
@@ -185,13 +207,13 @@ Resources:
             TableName: !Ref ContactsTable
         - DynamoDBCrudPolicy:
             TableName: !Ref BotsTable
-        # - LambdaInvokePolicy:
-        #   FunctionName: !Ref MakeMessage
+        - LambdaInvokePolicy:
+            FunctionName: !Ref MakeMessage
       Events:
         Api:
           Type: Api
           Properties:
-            RestApiId: !Ref BotApi 
+            RestApiId: !Ref BotApi
             Path: /webhook-whatsapp
             Method: post
 
@@ -225,6 +247,10 @@ Outputs:
     Value: !Ref BotsTable
   BotsTableArn:
     Value: !GetAtt BotsTable.Arn
+  MakeMessageFunctionName:
+    Value: !Ref MakeMessage
+  MakeMessageFunctionArn:
+    Value: !GetAtt MakeMessage.Arn
   TelegramWebhookUrl:
     Value: !Sub "https://${BotApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/webhook-telegram"
   WhatsappWebhookUrl:

@@ -15,11 +15,8 @@ client = boto3.client("dynamodb")
 
 
 def save_message(channel: str, chat_id: str, role: str, text: str):
-    print("test 1")
     now = datetime.now(timezone.utc)
-    print("test 2")
     ttl = int((now + timedelta(days=TTL_DAYS)).timestamp())
-    print("test >>> " + str(channel) + " " + str(chat_id) + " " + str(role) + " " + str(text) + " " + str(chat_id))
 
     table.put_item(Item={
         'channel':   channel,
