@@ -68,22 +68,7 @@ def get_response_groq(user_message: str, prompt: str, model="llama-3.3-70b-versa
         return False, "Error interno al procesar la respuesta."
 
 
-def call_groq(data, model="llama-3.3-70b-versatile"):
-    # 1. Historial
-    channel = data.channel
-    phone_id = data.phone_id
-    prompt = data.prompt
-    save_message(channel, phone_id, 'user', data.message)
-    history = get_history(phone_id, limit=10)
-    
-    messages = [
-        {"role": msg['role'], "content": msg['message']}
-        for msg in history
-    ]
-    
-    messages.insert(0, {"role": "system", "content": prompt})
-
-    # 3. Herramientas
+def call_groq(data, message_history, model="llama-3.3-70b-versatile"):
     tools = [
         {
             "type": "function",
@@ -120,13 +105,14 @@ def call_groq(data, model="llama-3.3-70b-versatile"):
 
     payload = {
         "model": model,
-        "messages": messages,
+        "messages": message_history,
         "temperature": 0.1,
         "tools": tools,
         "tool_choice": "auto"
     }
 
     try:
+        print("Payload Groq:", str(payload))
         req = urllib.request.Request(
             URL, 
             data=json.dumps(payload).encode('utf-8'), 
@@ -136,64 +122,7 @@ def call_groq(data, model="llama-3.3-70b-versatile"):
         with urllib.request.urlopen(req) as resp:
             result = json.loads(resp.read().decode('utf-8'))
             message = result['choices'][0]['message']
-
-            # Procesamiento de llamadas a herramientas
-            if message.get("tool_calls"):
-                tool_call = message['tool_calls'][0]
-                function_name = tool_call['function']['name']
-                args = json.loads(tool_call['function']['arguments'])
-                
-                date = args.get('fecha')
-                hour = args.get('hora')
-                reason = args.get('motivo', 'Cita por Chatbot')
-
-                if function_name == "book_appointment":
-                    success, payload = book_appointment_google(date, hour, reason)
-
-                    if success:
-                        prompt_result = (
-                            "Genera una respuesta corta y amigable para el usuario "
-                            "basada en el resultado de agendar una cita.\n\n"
-                            f"success={success}\n"
-                            f"payload={json.dumps(payload, ensure_ascii=False)}"
-                        )
-                        ok, response_text = get_response_groq(prompt_result, prompt, model)
-
-                    elif success == False and payload.get("code") == "SLOT_OCCUPIED":
-                        success_events, events = get_calendar_events_google(f"{date} {hour}")
-
-                        if success_events:
-                            prompt_result = (
-                                "Genera una respuesta corta y amigable para el usuario "
-                                f"La fecha y hora en la que el usuario intentó agendar una cita esta ocupada {date} {hour} "
-                                "ofrece otra fecha y hora disponible que puede agendar, te muestro los eventos que estan ocupados.\n\n"
-                                f"events={json.dumps(events, ensure_ascii=False)}"
-                            )
-                        else:
-                            prompt_result = (
-                                "Genera una respuesta corta y amigable para el usuario "
-                                f"La fecha en la que el usuario intentó agendar una cita esta ocupada {date} {hour}. "
-                            )
-                        ok, response_text = get_response_groq(prompt_result, prompt, model)
-
-                    else:
-                        response_text = "Hubo un error al intentar agendar la cita."
-                
-                elif function_name == "remove_book_appointment":
-                    success, payload = remove_appointment_google(date, hour)
-                    
-                    prompt_result = (
-                        "Genera una respuesta corta y amigable para el usuario "
-                        "basada en el resultado de eliminar una cita.\n\n"
-                        f"success={success}\n"
-                        f"payload={json.dumps(payload, ensure_ascii=False)}"
-                    )
-                    ok, response_text = get_response_groq(prompt_result, prompt, model)
-                    
-                else:
-                    response_text = "La herramienta solicitada no es válida."
-            else:
-                response_text = message.get('content', "No pude procesar tu solicitud.")
+            return message
 
     except urllib.error.HTTPError as e:
         error_body = e.read().decode('utf-8')
@@ -213,6 +142,36 @@ def call_groq(data, model="llama-3.3-70b-versatile"):
         logger.error(f"Error Groq: {str(e)}")
         response_text = "Tengo problemas técnicos para procesar tu solicitud."
 
-    # Se agregó 'channel' para igualar el guardado de historial de tu script OpenAI
-    save_message(channel, phone_id, 'assistant', response_text)
-    return response_text
+    return {"content":response_text}
+
+
+def analyze_image_groq(image_data, model="meta-llama/llama-4-scout-17b-16e-instruct"):
+    prompt = (
+        "Eres un asistente inteligente que analiza imágenes enviadas por los usuarios y proporciona una descripción detallada de lo que hay en la imagen. "
+        "Cuando recibas una imagen, responde con una descripción clara y concisa de su contenido, incluyendo objetos, personas, acciones y cualquier detalle relevante que puedas identificar. "
+        "Si la imagen es difícil de interpretar, haz tu mejor esfuerzo para describir lo que ves."
+    )
+
+    payload = {
+        "model": model,
+        "messages": [
+            {"role": "system", "content": prompt},
+            {"role": "user", "content": f"Analiza esta imagen: {image_data.url}"}
+        ],
+        "temperature": 0.1,
+    }
+
+    try:
+        req = urllib.request.Request(
+            URL, 
+            data=json.dumps(payload).encode('utf-8'), 
+            headers=headers
+        )
+        
+        with urllib.request.urlopen(req) as resp:
+            result = json.loads(resp.read().decode('utf-8'))
+            return result['choices'][0]['message']
+
+    except Exception as e:
+        logger.error(f"Error al analizar imagen con Groq: {str(e)}")
+        return "No pude analizar la imagen correctamente."

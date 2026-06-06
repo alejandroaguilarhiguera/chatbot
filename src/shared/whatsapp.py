@@ -1,5 +1,6 @@
 import os
 import base64
+from typing import TypedDict
 from dataclasses import dataclass
 from urllib.parse import parse_qs
 
@@ -14,6 +15,7 @@ channel = 'whatsapp'
 @dataclass
 class WhatsappEventData:
     message: str
+    # img: str | None
     first_name: str | None
     last_name: str | None
     from_: str
@@ -33,6 +35,7 @@ def get_data_from_event(event) -> WhatsappEventData:
     from_number = params.get("From", [""])[0]
     to = params.get("To", [""])[0]
     phone_id = params.get("WaId", [""])[0]
+    # num_media = int(event.get("NumMedia", 0))
 
     profile_name = params.get("ProfileName", [""])[0]
 
@@ -52,6 +55,7 @@ def get_data_from_event(event) -> WhatsappEventData:
         last_name=last_name,
         from_=from_number,
         to=to,
+        # img=ImageData(url=event["MediaUrl0"], content_type=event["MediaContentType0"]) if num_media > 0 else None,
         phone_id=phone_id,
         lang=None,
         channel=channel,
@@ -64,3 +68,8 @@ def send_message(to:str, from_: str, message: str):
         from_=to,
         to=from_
     )
+
+
+def get_image(file_id: str):
+    # TODO: implementar función para obtener imagen de whatsapp
+    pass

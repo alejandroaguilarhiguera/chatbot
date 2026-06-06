@@ -3,9 +3,6 @@ import json
 import urllib.request
 import urllib.error
 import logging
-from shared.get_date_now import get_date_now
-
-from shared.history_service import save_message, get_history
 from shared.google_calendar.book_appointment_google import book_appointment_google
 from shared.google_calendar.remove_appointment_google import remove_appointment_google
 from shared.google_calendar.get_calendar_events_google import get_calendar_events_google 
@@ -65,20 +62,15 @@ def get_response_gemini(user_message: str, prompt: str) -> tuple[bool, str]:
         return False, "Error interno al procesar la respuesta."
 
 
-def call_gemini(data) -> str:
+def call_gemini(data, message_history) -> str:
     # 1. Guardar mensaje usuario y recuperar historial
-    channel = data.channel
-    phone_id = data.phone_id
-    prompt = data.prompt
-    save_message(channel, phone_id, 'user', data.message)
-    history = get_history(phone_id, limit=10)
 
     contents = [
         {
             "parts": [{"text": msg['message']}],
             "role": "user" if msg['role'] == "user" else "model"
         }
-        for msg in history
+        for msg in message_history
     ]
 
     url = (
@@ -122,7 +114,7 @@ def call_gemini(data) -> str:
 
     payload = {
         "systemInstruction": {
-            "parts": [{"text": prompt}]
+            "parts": [{"text": data.prompt}]
         },
         "contents": contents,
         "tools": tools,
@@ -180,7 +172,7 @@ def call_gemini(data) -> str:
                                     f"success={success}\n"
                                     f"payload={json.dumps(payload_resp, ensure_ascii=False)}"
                                 )
-                                ok, response_text = get_response_gemini(prompt_result, prompt)
+                                ok, response_text = get_response_gemini(prompt_result, data.prompt)
 
                             elif success == False and payload_resp.get("code") == "SLOT_OCCUPIED":
                                 success_events, events = get_calendar_events_google(f"{date} {hora}")
@@ -197,7 +189,7 @@ def call_gemini(data) -> str:
                                         "Genera una respuesta corta y amigable para el usuario "
                                         f"La fecha en la que el usuario intentó agendar una cita esta ocupada {date} {hora}. "
                                     )
-                                ok, response_text = get_response_gemini(prompt_result, prompt)
+                                ok, response_text = get_response_gemini(prompt_result, data.prompt)
 
                             else:
                                 response_text = "Hubo un error al intentar agendar la cita."
@@ -210,7 +202,7 @@ def call_gemini(data) -> str:
                                 f"success={success}\n"
                                 f"payload={json.dumps(payload_resp, ensure_ascii=False)}"
                             )
-                            ok, response_text = get_response_gemini(prompt_result, prompt)
+                            ok, response_text = get_response_gemini(prompt_result, data.prompt)
 
                         else:
                             response_text = "La herramienta solicitada no es válida."
@@ -239,8 +231,5 @@ def call_gemini(data) -> str:
     except Exception as e:
         logger.error(f"Error inesperado Gemini: {str(e)}")
         response_text = "Tengo problemas técnicos para procesar tu solicitud."
-
-    # 4. Guardar respuesta
-    save_message(channel, phone_id, 'assistant', response_text)
 
     return response_text

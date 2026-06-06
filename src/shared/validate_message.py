@@ -2,6 +2,8 @@
 import json
 
 def validate_message_data(data):
+    if data.file_id:
+        return None
     if not data.message:
         return {
             "statusCode": 200,
